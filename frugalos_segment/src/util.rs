@@ -46,3 +46,12 @@ where
         }
     }
 }
+
+pub(crate) type BoxFuture<T> = Box<dyn Future<Item = T, Error = Error> + Send + 'static>;
+
+pub(crate) fn into_box_future<F>(future: F) -> BoxFuture<F::Item>
+where
+    F: Future<Error = cannyls::Error> + Send + 'static,
+{
+    Box::new(future.map_err(Error::from))
+}
