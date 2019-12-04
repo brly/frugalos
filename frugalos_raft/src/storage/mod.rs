@@ -210,13 +210,15 @@ impl Storage {
     #[allow(clippy::wrong_self_convention)]
     pub(crate) fn is_busy(&mut self) -> bool {
         if self.phase == Phase::Started {
-            if acquire_initialization_lock() {
-                info!(self.handle.logger, "Initialization lock is acquired");
-                self.phase = Phase::Initializing;
-                false
-            } else {
-                true
-            }
+            // if acquire_initialization_lock() {
+            //     info!(self.handle.logger, "Initialization lock is acquired");
+            //     self.phase = Phase::Initializing;
+            //     false
+            // } else {
+            //     true
+            // }
+            self.phase = Phase::Initializing;
+            false
         } else {
             false
         }
