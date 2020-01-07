@@ -235,20 +235,49 @@ impl DispersedClient {
             span.tag(StdTag::component(module_path!()))
                 .tag(Tag::new("object.version", version.0 as i64))
                 .tag(Tag::new("storage.type", "dispersed"))
+                .tag(Tag::new("index", index.to_string()))
                 .start()
         });
         if candidates.len() <= index {
             return Box::new(futures::future::ok(false));
         }
         let cluster_member = candidates[index].clone();
-        Box::new(DeleteDispersedFragment::new(
-            deadline,
-            version,
-            cluster_member,
-            self.rpc_service,
-            &self.client_config,
-            span,
-        ))
+
+        // let cannyls_client = CannyLsClient::new(cluster_member.node.addr, rpc_service);
+        let cannyls_client = CannyLsClient::new(cluster_member.node.addr, self.rpc_service);
+        let lump_id = cluster_member.make_lump_id(version);
+        let mut span = parent.child("dispersed_delete_fragment", |span| {
+            span.tag(StdTag::component(module_path!()))
+                .tag(StdTag::span_kind("client"))
+                .tag(StdTag::peer_ip(cluster_member.node.addr.ip()))
+                .tag(StdTag::peer_port(cluster_member.node.addr.port()))
+                .tag(Tag::new("device", cluster_member.device.clone()))
+                .tag(Tag::new("lump", format!("{:?}", lump_id)))
+                .start()
+        });
+        let mut request = cannyls_client.request();
+        // request.rpc_options(client_config.cannyls.rpc_options());
+        request.rpc_options(self.client_config.cannyls.rpc_options());
+        let device = cluster_member.device;
+        let future = request
+            .deadline(deadline)
+            .delete_lump(DeviceId::new(device), lump_id)
+            .then(move |result| {
+                if let Err(ref e) = result {
+                    span.log_error(e);
+                }
+                result
+            });
+        let future: BoxFuture<_> = Box::new(future.map_err(|e| track!(Error::from(e))));
+        future
+        // Box::new(DeleteDispersedFragment::new(
+        //     deadline,
+        //     version,
+        //     cluster_member,
+        //     self.rpc_service,
+        //     &self.client_config,
+        //     span,
+        // ))
     }
 }
 
